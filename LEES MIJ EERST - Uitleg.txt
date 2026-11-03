@@ -1,0 +1,112 @@
+﻿WHATNOT STICKERPRINTER - UITLEG
+================================
+
+WAT DOET HET?
+Tijdens een Whatnot-show print dit programma bij elke verkoop automatisch
+een sticker op de DYMO. Op de sticker staan:
+  - het logo
+  - de Whatnot-naam van de koper (bijv. @pokepiet_nl)
+  - het bestelnummer
+Plak de sticker op het zakje van die koper, dan weet je altijd van wie het is.
+
+
+EENMALIG INSTELLEN (doe je maar 1 keer)
+1. Zorg dat DYMO Connect op de pc staat en de DYMO-printer aan staat.
+2. Pak de zip eerst uit: rechtsklik op de zip > "Alles uitpakken".
+   Open de uitgepakte map en dubbelklik daar op "Start Stickerprinter.bat".
+   (Het zwarte venster sluit vanzelf, daarna opent het programma.)
+   Krijg je een blauw scherm van Windows? Klik op "Meer info" en
+   daarna op "Toch uitvoeren".
+3. Het programma vraagt om een API-sleutel. Die maak je zo aan:
+   - Ga naar whatnot.com/dashboard/developer
+   - Maak een nieuwe sleutel (token) aan
+   - Vink ALLEEN deze twee aan:
+       [x] Bestellingen lezen
+       [x] Klanten lezen
+     (de rest is niet nodig voor de stickers)
+   - Kies bij de geldigheid het liefst "geen vervaldatum"
+   - Kopieer de sleutel en plak hem in het programma
+4. Kies bovenin de DYMO-printer.
+5. Klik "Logo kiezen" en kies het logobestand (TCG_Plug_logo_zwartwit.png).
+6. Klik "Testlabel". Komt er een nette sticker uit? Dan ben je klaar.
+
+
+ELKE STREAM
+1. Dubbelklik op "Start Stickerprinter.bat".
+2. Bovenin staat in GROEN: "Actief - wacht op verkopen". Dan werkt het.
+3. Laat het venster openstaan tijdens de show. Verder hoef je niks te doen.
+4. Klaar met streamen? Sluit het venster gewoon af.
+
+
+DE KNOPPEN
+  Start / Pauze ............ printen aan- of uitzetten
+  Testlabel ................ print een voorbeeldsticker
+  Herprint geselecteerde ... klik eerst op een regel in de lijst, dan
+                             deze knop: die sticker komt nog een keer
+  API-sleutel wijzigen ..... nieuwe Whatnot-sleutel invullen
+  Logo kiezen / weghalen ... logo op de sticker wel of niet
+  Instellingen ............. labelformaat, uitlijnen en break-woorden
+  Tabblad "Kopers deze show": alle kopers van de huidige show, met de
+                             meeste aankopen bovenaan. Klik een koper aan en
+                             druk "Extra sticker printen" (of dubbelklik)
+                             voor nog een sticker. Vetgedrukt = meer aankopen
+                             dan stickers.
+  Logbestand ............... technische meldingen (voor als iets misgaat)
+  Uitleg ................... opent dit bestand
+
+
+GOED OM TE WETEN
+- Elke bestelling wordt maar 1 keer geprint.
+- Programma per ongeluk afgesloten tijdens de show? Gewoon opnieuw starten.
+  Verkopen die je hebt gemist worden dan alsnog geprint.
+- Bij de allereerste start worden oude bestellingen overgeslagen.
+- Alleen VOLLEDIG BETAALDE bestellingen krijgen een sticker: de order moet
+  betaald zijn en de naam van de koper moet erbij staan (net als in je
+  Whatnot-overzicht). Tot die tijd wacht het programma en print de sticker
+  zodra de order compleet is. Bovenin zie je hoeveel orders op betaling wachten.
+- Geannuleerde bestellingen en mislukte betalingen worden nooit geprint.
+- "Breaks: 1 sticker per koper per break" (staat standaard aan): bij een
+  break krijgt een koper 1 sticker, ook als hij meerdere spots koopt.
+  Bij elke NIEUWE break krijgt hij weer een sticker.
+  Het programma herkent zelf wanneer een andere break begint. Voor de
+  zekerheid kun je bij het starten van een nieuwe break op de knop
+  "Nieuwe break" klikken.
+  Gewone verkopen (losse kaarten, sealed) krijgen ALTIJD een sticker.
+  Een break wordt herkend aan woorden in de producttitel, standaard
+  "break" en "spot". Aanpassen via Instellingen.
+
+
+UPDATES
+- Bij het opstarten kijkt het programma of er een nieuwe versie is.
+  Zo ja, dan vraagt hij "Nu bijwerken?". Klik Ja: hij werkt zichzelf bij
+  en start opnieuw. Je instellingen blijven bewaard.
+- Doe dit niet midden in een stream: klik dan Nee, de vraag komt bij de
+  volgende start terug.
+- Zelf controleren: Instellingen > "Nu controleren".
+- Ging er iets mis? De vorige versie staat in de map als
+  "WhatnotStickerprinter.vorige-versie.ps1".
+
+
+ER GAAT IETS MIS?
+- Zwart venster flitst weg en er opent niks: start "Probleemoplossing.bat".
+  Dat venster blijft open en laat de foutmelding zien. Maak daar een foto van.
+- Bovenin staat iets in ROOD: lees wat er staat, daar staat de oorzaak.
+- "Koper onbekend" op de sticker: de API-sleutel mist het vinkje
+  "Klanten lezen". Maak een nieuwe sleutel aan (zie stap 3) en vul die in
+  via "API-sleutel wijzigen".
+- "Whatnot weigert de sleutel": de sleutel is verlopen of fout.
+  Maak een nieuwe aan en vul die in via "API-sleutel wijzigen".
+- "Printer niet gevonden" / er komt niks uit: staat de DYMO aan en is hij
+  verbonden? Kies hem opnieuw bovenin en probeer "Testlabel".
+- "Geen verbinding met Whatnot": internet weg of Whatnot even traag.
+  Het programma blijft het zelf opnieuw proberen.
+- Sticker scheef, te klein of half van het label af: klik "Instellingen".
+  Kies bij Labelformaat het formaat met 11352 (25 x 54 mm), klik
+  "Opslaan + testlabel". Nog niet goed? Schuif hem met de mm-vakjes op zijn
+  plek en probeer opnieuw.
+- Regel in de lijst is ROOD (FOUT): die sticker is niet geprint.
+  Selecteer de regel en klik "Herprint geselecteerde".
+- Komt er niks uit tijdens een show? Check of het vinkje
+  "Alleen verkopen uit live shows" aan staat en of je echt live bent.
+
+Kom je er niet uit? Stuur een foto van het scherm naar Dennis.
