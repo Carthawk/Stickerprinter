@@ -11,7 +11,7 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$AppVersion = '2.0'
+$AppVersion = '2.2'
 $ApiBase    = 'https://api.whatnot.com/seller-api/rest/v2'
 $DataDir    = Join-Path $env:APPDATA 'WhatnotStickerprinter'
 if (-not (Test-Path $DataDir)) { New-Item -ItemType Directory -Path $DataDir | Out-Null }
@@ -25,13 +25,31 @@ function Write-Log($msg) {
     try { Add-Content -Path $LogPath -Value ("{0}  {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg) -Encoding UTF8 } catch {}
 }
 
+# ---------- Hulpfunctie: JSON-lijst veilig inlezen ----------
+function Read-JsonList($path) {
+    $out = New-Object System.Collections.ArrayList
+    if (-not (Test-Path $path)) { return ,$out }
+    $raw = Get-Content $path -Raw -Encoding UTF8
+    if (-not $raw -or -not $raw.Trim()) { return ,$out }
+    $parsed = $raw | ConvertFrom-Json
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($parsed)
+    while ($stack.Count -gt 0) {
+        $x = $stack.Pop()
+        if ($null -eq $x) { continue }
+        if ($x -is [System.Array]) { foreach ($y in $x) { $stack.Push($y) } }
+        else { [void]$out.Add($x) }
+    }
+    return ,$out
+}
+
 # ---------- Instellingen ----------
 function Load-Config {
-    $c = [ordered]@{ TokenEnc = ''; Printer = ''; IntervalSec = 5; OnlyShows = $true; LogoPath = ''; InstallTime = ''; PaperName = ''; OffXmm = 0; OffYmm = 0; ScalePct = 100; PerBuyer = $true; BreakWords = 'break, spot'; BreakRound = 1; UpdateUrl = '' }
+    $c = [ordered]@{ TokenEnc = ''; Printer = ''; IntervalSec = 5; OnlyShows = $true; LogoPath = ''; InstallTime = ''; PaperName = ''; OffXmm = 0; OffYmm = 0; ScalePct = 100; PerBuyer = $true; BreakWords = 'break, spot'; BreakRound = 1; UpdateUrl = ''; RequirePaid = $true }
     if (Test-Path $ConfigPath) {
         try {
             $j = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            foreach ($k in @('TokenEnc','Printer','IntervalSec','OnlyShows','LogoPath','InstallTime','PaperName','OffXmm','OffYmm','ScalePct','PerBuyer','BreakWords','BreakRound','UpdateUrl')) {
+            foreach ($k in @('TokenEnc','Printer','IntervalSec','OnlyShows','LogoPath','InstallTime','PaperName','OffXmm','OffYmm','ScalePct','PerBuyer','BreakWords','BreakRound','UpdateUrl','RequirePaid')) {
                 if ($null -ne $j.$k) { $c[$k] = $j.$k }
             }
         } catch { Write-Log "Instellingen onleesbaar: $_" }
@@ -62,7 +80,12 @@ $script:Seen = New-Object 'System.Collections.Generic.HashSet[string]'
 $script:Pending = @{}   # order-id -> moment eerst gezien (nog niet betaald)
 $script:FirstRun = -not (Test-Path $SeenPath)
 if (-not $script:FirstRun) {
-    try { foreach ($id in @(Get-Content $SeenPath -Raw | ConvertFrom-Json)) { [void]$script:Seen.Add([string]$id) } } catch {}
+    try {
+        foreach ($id in (Read-JsonList $SeenPath)) {
+            # Oude, verkeerd opgeslagen regels bevatten meerdere ID's met spaties ertussen
+            foreach ($part in ([string]$id -split '\s+')) { if ($part) { [void]$script:Seen.Add($part) } }
+        }
+    } catch { Write-Log "Geprint-bestand onleesbaar: $_" }
 }
 function Save-Seen {
     try { ConvertTo-Json -InputObject @($script:Seen) -Compress | Set-Content $SeenPath -Encoding UTF8 } catch {}
@@ -74,8 +97,8 @@ $script:CurrentShow = ''
 if (Test-Path $BuyersPath) {
     try {
         $latest = ''
-        foreach ($b in @(Get-Content $BuyersPath -Raw -Encoding UTF8 | ConvertFrom-Json)) {
-            if (-not $b.Key) { continue }
+        foreach ($b in (Read-JsonList $BuyersPath)) {
+            if (-not $b.Key -or $b.Key -is [System.Array] -or $b.Aankopen -is [System.Array]) { continue }
             $script:Buyers[[string]$b.Key] = $b
             if ([string]$b.LastTime -gt $latest) { $latest = [string]$b.LastTime; $script:CurrentShow = [string]$b.ShowId }
         }
@@ -361,6 +384,7 @@ function Check-Update([bool]$manual) {
 
 # ---------- Venster ----------
 $script:Config = Load-Config
+if (-not $script:Config.UpdateUrl) { $script:Config.UpdateUrl = 'https://github.com/Carthawk/Stickerprinter' }
 if (-not $script:Config.InstallTime -and -not $script:FirstRun) { $script:Config.InstallTime = [DateTime]::UtcNow.ToString('o'); Save-Config }
 $script:Running = $false
 $script:Busy = $false
@@ -464,6 +488,9 @@ $tabBuyers.Controls.Add($listB)
 $tabBuyers.Controls.Add($pnlB)
 
 function Refresh-Buyers {
+    try { Refresh-BuyersInner } catch { Write-Log "Kopers-lijst bijwerken mislukt: $_" }
+}
+function Refresh-BuyersInner {
     $selKey = $null
     if ($listB.SelectedItems.Count -gt 0) { $selKey = $listB.SelectedItems[0].Tag.Key }
     $listB.BeginUpdate()
@@ -557,6 +584,22 @@ function Add-Row($d, $st) {
     $list.Items.Insert(0, $it) | Out-Null
 }
 
+$script:WaitShown = New-Object 'System.Collections.Generic.HashSet[string]'
+function Add-WaitRow($o, $reason) {
+    $key = "$($o.id)|$reason|$($o.status)"
+    if (-not $script:WaitShown.Add($key)) { return }
+    $nm = '(nog geen naam)'
+    if ($o.buyer -and $o.buyer.username) { $nm = '@' + $o.buyer.username }
+    Write-Log ("Wacht: order {0} status={1} naam={2} show={3} reden={4}" -f $o.id, $o.status, $nm, $o.show_id, $reason)
+    $it = New-Object System.Windows.Forms.ListViewItem((Get-Date).ToString('HH:mm:ss'))
+    [void]$it.SubItems.Add($nm)
+    [void]$it.SubItems.Add("(wacht: $reason)")
+    [void]$it.SubItems.Add([string]$o.id)
+    [void]$it.SubItems.Add("Wacht ($($o.status))")
+    $it.ForeColor = [System.Drawing.Color]::DarkOrange
+    $list.Items.Insert(0, $it) | Out-Null
+}
+
 function Update-StartButton {
     if ($script:Running) { $btnStart.Text = 'Pauze' } else { $btnStart.Text = 'Start' }
 }
@@ -637,15 +680,19 @@ function Poll {
                 if ($script:Pending.ContainsKey($id)) { $script:Pending.Remove($id) }
                 [void]$script:Seen.Add($id); continue
             }
-            if (@('pending_fulfillment','completed') -notcontains $o.status) {
-                # Nog niet betaald: onthouden en later opnieuw bekijken
-                if (-not $script:Pending.ContainsKey($id)) { $script:Pending[$id] = Get-Date }
-                continue
-            }
-            if (-not ($o.buyer -and $o.buyer.username)) {
-                # Pas printen als de order in Whatnot volledig is, met de naam van de koper erbij
-                if (-not $script:Pending.ContainsKey($id)) { $script:Pending[$id] = Get-Date }
-                continue
+            if ($script:Config.RequirePaid) {
+                if (@('pending_fulfillment','completed') -notcontains $o.status) {
+                    # Nog niet betaald: onthouden en later opnieuw bekijken
+                    if (-not $script:Pending.ContainsKey($id)) { $script:Pending[$id] = Get-Date }
+                    Add-WaitRow $o 'nog niet betaald'
+                    continue
+                }
+                if (-not ($o.buyer -and $o.buyer.username)) {
+                    # Pas printen als de order in Whatnot volledig is, met de naam van de koper erbij
+                    if (-not $script:Pending.ContainsKey($id)) { $script:Pending[$id] = Get-Date }
+                    Add-WaitRow $o 'nog geen naam'
+                    continue
+                }
             }
             if ($script:Pending.ContainsKey($id)) { $script:Pending.Remove($id) }
             $new += $o
@@ -815,7 +862,12 @@ function Show-LabelSettings {
 
     $info = New-Object System.Windows.Forms.TextBox
     $info.Multiline = $true; $info.ReadOnly = $true; $info.ScrollBars = 'Vertical'
-    $info.Location = New-Object System.Drawing.Point(15, 325); $info.Size = New-Object System.Drawing.Size(510, 90)
+    $chkPaid = New-Object System.Windows.Forms.CheckBox
+    $chkPaid.Text = 'Alleen printen als de order betaald is en de naam erbij staat'
+    $chkPaid.Location = New-Object System.Drawing.Point(15, 318); $chkPaid.AutoSize = $true
+    $chkPaid.Checked = [bool]$script:Config.RequirePaid; $f.Controls.Add($chkPaid)
+
+    $info.Location = New-Object System.Drawing.Point(15, 348); $info.Size = New-Object System.Drawing.Size(510, 75)
     $info.Text = if ($script:LastDiag) { "Laatste print:`r`n" + ($script:LastDiag -replace ' \| ', "`r`n") } else { 'Druk op Testlabel om de printergegevens te zien.' }
     $f.Controls.Add($info)
 
@@ -824,6 +876,7 @@ function Show-LabelSettings {
         $script:Config.OffXmm = [double]$nX.Value; $script:Config.OffYmm = [double]$nY.Value; $script:Config.ScalePct = [double]$nS.Value
         $script:Config.BreakWords = $txtW.Text.Trim()
         $script:Config.UpdateUrl = $txtU.Text.Trim()
+        $script:Config.RequirePaid = $chkPaid.Checked
         Save-Config
     }
     $bTest = New-Object System.Windows.Forms.Button

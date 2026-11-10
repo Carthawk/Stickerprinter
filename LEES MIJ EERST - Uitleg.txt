@@ -65,6 +65,10 @@ GOED OM TE WETEN
   Whatnot-overzicht). Tot die tijd wacht het programma en print de sticker
   zodra de order compleet is. Bovenin zie je hoeveel orders op betaling wachten.
 - Geannuleerde bestellingen en mislukte betalingen worden nooit geprint.
+- Orders die wachten staan ORANJE in de lijst, met de reden erbij
+  ("nog niet betaald" of "nog geen naam"). Komt er nooit een sticker?
+  Dan kun je in Instellingen het vinkje "Alleen printen als de order
+  betaald is en de naam erbij staat" uitzetten.
 - "Breaks: 1 sticker per koper per break" (staat standaard aan): bij een
   break krijgt een koper 1 sticker, ook als hij meerdere spots koopt.
   Bij elke NIEUWE break krijgt hij weer een sticker.
